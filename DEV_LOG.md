@@ -151,3 +151,51 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 - Expired games are removed lazily, on the next create or access.
 
 **Status:** Phase 4 is 25/25. Overall 72/118 (61%), 4/8 phases.
+
+---
+
+## Phase 5: Web client (2026-10-29)
+
+**Key prompt:** "Start Phase 5" (HTML, CSS and JS client served by Flask, all game logic through `fetch()`).
+
+**Contract (designed by Opus, built by Sonnet):**
+- `static/index.html`, `style.css`, `app.js` (an ES module, no framework, no build step). `GET /` serves the page.
+- The browser keeps only the current `game_id` and the last server state, and renders everything from that state. It decides nothing about the game itself. The only local logic is ignoring keys that are not A to Z.
+- The page has a 6-part SVG hangman (one part per miss), the word as letter cells, remaining guesses, guessed and incorrect letters, a 26-key on-screen keyboard (guessed keys disabled and marked), physical-keyboard input, and win and loss messages that reveal the word from the final server response.
+- It handles errors: it shows the server's `error` text, treats a 404 as an expired game (for example after a Render restart), shows a message when the network is down, and after 3 seconds explains that the server may be waking up.
+
+**Decisions:**
+- **One request at a time, and stale responses are ignored.** A slow reply from an old game must not overwrite a new one.
+- **Key presses are ignored while the difficulty `<select>` has focus.** Typing a letter there changes the selected option, so it would otherwise also send a guess.
+- **A Content-Security-Policy (`default-src 'self'`) and `nosniff` header on every response.** As a result, the page has no inline scripts, styles or handler attributes. Even if text were ever injected into the page, it could not run as script.
+- **The difficulty select does not restart a game.** It only applies to the next New game, so a misclick cannot throw away a game in progress.
+
+**Built (Sonnet):**
+- `static/index.html` (61 lines), `style.css` (about 310), `app.js` (344), `favicon.svg`.
+- 41 tests in `tests/test_web.py`: page and assets served, security headers present, no inline code that the CSP would block, 6 drawing parts, no word list shipped to the browser.
+
+**Browser verification (Opus, Playwright scripts in the session scratchpad):**
+- 4 full games through the real UI by clicking and by typing, on desktop, a 360px phone and dark mode. Each one checked:
+  - No API response contained `word` while playing.
+  - The drawing matched the server's miss count after every guess.
+  - Guessed keys were disabled, and focus moved to New game at the end.
+  - Typing in the focused select sent no guess.
+- A fixed-word server for a forced win, the 12-letter word at 320 and 375px, the server stopped mid-game ("could not reach the server", still playable), and a restart with an empty store ("game expired", keys disabled, New game recovers).
+- 800 ms of server-side latency on guesses, to recreate Render's slow network (see below).
+
+**Problems found and fixed:**
+- **Long words wrapped on phones.** The 12-letter hard words used fixed 36px cells (476px in all), so "questionable" broke onto two lines. Cells now shrink to fit one row (`flex: 0 1`, `aspect-ratio`). The first attempt shrank them far too much, because the row was sized to its contents. Setting `width: 100%` fixed that.
+- **CSP blocks Playwright's `wait_for_function`.** It polls by evaluating strings, which `default-src 'self'` forbids. The first check passed only because its conditions were already true on the first try. Waits now use `expect(locator)`. This confirms the CSP is enforced, and the Phase 6 test must follow the same rule.
+- **A leftover test server gave false results.** A crashed check left a server on its port, so the next run's "server down" step was testing the leftover server. The scripts now refuse a port that is already in use and always stop their server in `finally`. Servers are killed by PID, never with `pkill -f`, which earlier killed my own shell.
+- **Slow-network bugs found by the Haiku code review.** On local servers replies take milliseconds, so the first browser run could not see these. All are fixed in `app.js` and confirmed with real latency:
+  - Clicking New game during a pending guess left the new game's keys locked until the old reply came back. The pending guess is now tied to its `game_id`.
+  - There was no request timeout, so a stalled request froze the page. A 90-second `AbortSignal.timeout` now covers a cold start.
+  - A letter repeated on the physical keyboard was sent to the server and came back as a red 409. It now shows "You already guessed Z." without a request.
+  - Every key greyed out during each guess, which flickers on real latency. Keys now stay enabled, and input is ignored while a guess is pending.
+  - Keyboard users lost focus when their key or New game was disabled. Focus now moves to the next key, and New game uses `aria-disabled` so it keeps focus.
+  - A non-JSON 404 (from a proxy) was treated as an expired game. A 404 on the refresh after a 409 now expires the game. A game that ended through a 409 now shows its result. Typing during IME composition is ignored.
+- **Lesson:** a UI tested only against localhost has never seen latency. Adding a deliberate server delay exposes the race conditions real users would hit.
+
+**Verified:** 266 tests pass. All three browser checks pass after the fixes. The Haiku code review found 40 of 42 items met, and its 2 partial items were the timeout and the duplicate-key bugs fixed above.
+
+**Status:** Phase 5 is 23/23. Overall 95/120 (79%), 5/8 phases.

@@ -17,6 +17,13 @@ from word_manager import InvalidDifficultyError, WordManager
 MAX_BODY_BYTES = 1024
 BAD_BODY_MESSAGE = "Send a JSON object with Content-Type: application/json."
 INTERNAL_ERROR_MESSAGE = "Internal server error."
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; frame-ancestors 'none'; "
+        "base-uri 'self'; form-action 'self'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+}
 
 
 def create_app(
@@ -37,6 +44,7 @@ def create_app(
     _register_routes(app, word_manager, store)
     _register_error_handlers(app)
     _register_cache_headers(app)
+    _register_security_headers(app)
     return app
 
 
@@ -51,6 +59,10 @@ def _json_object() -> dict[str, object]:
 def _register_routes(
     app: Flask, words: WordManager, store: GameStore
 ) -> None:
+    @app.get("/")
+    def index():
+        return app.send_static_file("index.html")
+
     @app.post("/api/games")
     def create_game():
         difficulty = _json_object().get("difficulty")
@@ -106,6 +118,13 @@ def _register_cache_headers(app: Flask) -> None:
     def disable_api_caching(response: Response) -> Response:
         if request.path == "/api" or request.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
+        return response
+
+
+def _register_security_headers(app: Flask) -> None:
+    @app.after_request
+    def add_security_headers(response: Response) -> Response:
+        response.headers.update(SECURITY_HEADERS)
         return response
 
 

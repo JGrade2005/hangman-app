@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Hangman</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <h1>Hangman</h1>
+
+    <div class="controls">
+      <div class="field">
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <button id="new-game" type="button">New game</button>
+    </div>
+
+    <p id="message" role="status" aria-live="polite">Pick a difficulty and press New game.</p>
+
+    <svg id="drawing" viewBox="0 0 200 240" role="img"
+         aria-label="Hangman drawing, 0 of 6 parts"
+         fill="none" stroke-width="6" stroke-linecap="round"
+         stroke-linejoin="round">
+      <g class="gallows" stroke="currentColor">
+        <line x1="20" y1="226" x2="140" y2="226"/>
+        <line x1="50" y1="226" x2="50" y2="20"/>
+        <line x1="50" y1="20" x2="130" y2="20"/>
+        <line x1="130" y1="20" x2="130" y2="50"/>
+      </g>
+      <g class="figure" stroke="currentColor">
+        <circle class="part" data-part="1" cx="130" cy="70" r="20"/>
+        <line class="part" data-part="2" x1="130" y1="90" x2="130" y2="150"/>
+        <line class="part" data-part="3" x1="130" y1="105" x2="102" y2="132"/>
+        <line class="part" data-part="4" x1="130" y1="105" x2="158" y2="132"/>
+        <line class="part" data-part="5" x1="130" y1="150" x2="106" y2="196"/>
+        <line class="part" data-part="6" x1="130" y1="150" x2="154" y2="196"/>
+      </g>
+    </svg>
+
+    <div id="word" role="img" aria-label="Word: no game yet"></div>
+
+    <div class="status">
+      <p><span id="remaining">No game in progress</span></p>
+      <p>Guessed letters: <span id="guessed-letters">None yet</span></p>
+      <p>Incorrect letters: <span id="incorrect-letters">None yet</span></p>
+    </div>
+
+    <div id="keyboard" role="group" aria-label="Letters"></div>
+  </main>
+</body>
+</html>
