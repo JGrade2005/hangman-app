@@ -100,3 +100,54 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 - The Haiku agent independently checked 64 requirements (36 TODO, 14 spec, 14 brief): 56 met. Every partial or missing item traced to the four issues fixed above, apart from "server is authoritative", which can only be checked once the server exists in Phase 4.
 
 **Status:** Phase 3 is 32/32. Overall 47/116 (40%), 3/8 phases.
+
+---
+
+## Phase 4: Flask server and REST API (2026-10-29)
+
+**Key prompt:** "Continue onto the next phase" (the Flask server and API, with API tests).
+
+**Contract (designed by Opus, built by Sonnet):**
+- `game_store.py` (no Flask): `GameStore` keeps games in an `OrderedDict` ordered by last use, guarded by one lock. IDs come from `uuid4().hex`. Games idle for more than 1 hour expire, and a 10,000-game cap evicts the least recently used.
+- `server.py`: the `create_app(word_manager, store=...)` factory lets tests inject fixed words. A module-level `app` serves Gunicorn. The three spec routes return `{"game_id", ...state}`, and `word` appears only after the game ends.
+- Status codes:
+
+| Status | When |
+|---|---|
+| 201 | Create, with a `Location` header |
+| 200 | Get or guess |
+| 400 | Body is not a JSON object, or a bad difficulty or letter |
+| 404 | Unknown or expired game, or unknown route |
+| 405 | Wrong method |
+| 409 | Duplicate guess, or a guess after the game ends |
+| 413 | Body over 1 KB |
+| 500 | Unexpected error (generic message, no traceback) |
+
+- Every error is JSON `{"error": ...}`. All `/api/` responses carry `Cache-Control: no-store`.
+
+**Decisions:**
+- **One lock around each whole store operation.** Lookup, guess and snapshot all run under the lock, so two concurrent guesses of the same letter cannot both pass the duplicate check. This matters because Gunicorn runs 4 threads.
+- **LRU ordering.** Expiry and the cap can pop from the front of the ordered dict instead of scanning every game. This is the same structure as the LRU cache interview problem.
+- **Engine exception classes mapped to status codes.** Mapping the exception classes, never bare `ValueError`, means a real bug still surfaces as a 500 instead of being disguised as a user error.
+- **Debug mode is off when running `python server.py`.** The Werkzeug debugger can run arbitrary code if it is ever exposed.
+
+**Built (Sonnet):** `game_store.py` (110 lines), `server.py` (115 lines), 22 store tests, and 66 API tests.
+
+**Problems found and fixed (Opus):**
+- **The concurrency test could not fail.** The agent's 20-thread duplicate-guess test still passed with the lock removed (3 of 3 runs, and 0 of 150 in the Haiku check), because the engine's check-then-append window is too narrow under the GIL. I added `test_store_runs_one_engine_call_at_a_time`, which uses a slow stand-in game and records overlapping calls. With the lock removed, it failed 3 of 3 runs. Lesson: a concurrency test has to be shown to fail without the protection, or it only gives false confidence.
+- **Doubled slashes bypassed the JSON errors.** `/api/games//guess` got an HTML 308 redirect, because Werkzeug merges slashes and routing redirects skip the error handlers. Setting `url_map.merge_slashes = False` makes it a JSON 404.
+- **`/api` (no trailing slash) lacked `Cache-Control: no-store`.** Fixed the path check.
+- The hidden-word API test now asserts the exact key set of every playing response, not just that `word` is absent.
+
+**Verified:**
+- 225 tests pass in 0.5 s.
+- curl against `python server.py` played a full game at each difficulty (easy "field", medium "darling", hard "questionable", all losses to a frequency-order guesser). The word was never present while playing, and a guess after the end gave 409.
+- curl also returned JSON 400, 404 and 405 errors, with `Cache-Control: no-store`.
+- The Haiku check: 44 of 45 items met. The partial item was "JSON consistently": Flask's automatic OPTIONS reply (empty body, accepted as is) and the redirect fixed above. Its fuzz ran 180 real games and found 0 responses with extra keys while playing.
+
+**Notes for the README (Phase 8):**
+- A wrong Content-Type gets 400 rather than 415, because the brief lists 400.
+- The 10,000-game cap can evict an active game that has gone unused for the longest time.
+- Expired games are removed lazily, on the next create or access.
+
+**Status:** Phase 4 is 25/25. Overall 72/118 (61%), 4/8 phases.
