@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Playwright output
+test-results/
+playwright-report/
+
+# Agent tooling state
+.claude-flow/
+.claude/settings.local.json
+
+# Course reference material, not part of this project's source
+cursor_transcript.md
+
+# OS and secrets
+.DS_Store
+.env
