@@ -196,12 +196,14 @@ No hidden word is stored in browser-side JavaScript. (P5)
 
 ### Tasks
 
-- [ ] Test browser-client integration. (P13)
-- [ ] Add an end-to-end automated test. (P13)
-- [ ] Run the full pytest suite with every test passing. (brief)
-- [ ] Play a browser game at each difficulty, covering a win and a loss. (brief)
-- [ ] Confirm in the network log that no response contains the word while a game is playing. (plan)
-- [ ] Run the app locally under Gunicorn with the production start command. (plan)
+- [x] Test browser-client integration. (P13)
+- [x] Add an end-to-end automated test. (P13)
+- [x] Run the full pytest suite with every test passing. (brief)
+- [x] Play a browser game at each difficulty, covering a win and a loss. (brief)
+- [x] Confirm in the network log that no response contains the word while a game is playing. (plan)
+- [x] Run the app locally under Gunicorn with the production start command. (plan)
+- [x] Show why Gunicorn must run a single worker while games live in memory. (plan)
+- [x] Map every testing requirement in the brief to the tests that cover it. (plan)
 
 ### Completion Criteria
 
@@ -213,9 +215,10 @@ The major user flows and failure cases are covered by automated tests. (P13)
 
 ### Tasks
 
-- [ ] Add `render.yaml` with the Gunicorn start command (1 worker, 4 threads). (brief)
-- [ ] Pin the Python version. (plan)
-- [ ] Recheck Render free-tier behavior (sleep, wake time, monthly hours). (plan)
+- [x] Add `render.yaml` with the Gunicorn start command (1 worker, 4 threads). (brief)
+- [x] Pin the Python version. (plan)
+- [x] Simulate the Render build in a clean virtual environment with only `requirements.txt`. (plan)
+- [x] Recheck Render free-tier behavior (sleep, wake time, monthly hours). (plan)
 - [ ] User: create the GitHub repo, commit, and push. (brief)
 - [ ] User: sign in to Render and apply the Blueprint. (brief)
 - [ ] Verify the live HTTPS URL with HTTP requests (create, guess, win, loss, errors, no word leak). (brief)

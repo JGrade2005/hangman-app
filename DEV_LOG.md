@@ -199,3 +199,111 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 **Verified:** 266 tests pass. All three browser checks pass after the fixes. The Haiku code review found 40 of 42 items met, and its 2 partial items were the timeout and the duplicate-key bugs fixed above.
 
 **Status:** Phase 5 is 23/23. Overall 95/120 (79%), 5/8 phases.
+
+---
+
+## Phase 6: Local testing (2026-10-29)
+
+**Key prompt:** "So far everything works properly. All 3 difficulties are working and have correct words. Continue onto phase 6."
+
+**Manual browser playthrough (user):** played games at Easy, Medium and Hard in the browser and confirmed each one works with words from the right list.
+
+**Gunicorn, production start command (Opus):**
+- `gunicorn --workers 1 --threads 4 --bind 127.0.0.1:8000 server:app` started the `gthread` worker. The log showed no errors and a clean shutdown.
+- curl played a full game at each difficulty (easy "small", medium "dispute", hard "exquisite"). There were 0 responses with `word` while playing, and a guess after the end gave 409. The page served the CSP and `nosniff` headers.
+- The Playwright check played 4 full browser games against Gunicorn (desktop, phone, dark mode, click and keyboard input) with no problems.
+
+**Why Gunicorn must run a single worker (measured):**
+
+| Setup | State requests for a game that exists | 404s |
+|---|---|---|
+| `--workers 2 --threads 1` | 100 (10 games, 10 GETs each) | 8 |
+| `--workers 1 --threads 4` | 100 (same test) | 0 |
+
+- Each worker process has its own memory, so a game created in one worker does not exist in the other.
+- The failure rate is low and random because Linux hands most connections to one worker. That makes it look like an intermittent bug rather than a design limit.
+- Threads share memory, so concurrency comes from threads, protected by the store's lock.
+- Scaling to several workers or instances would need shared storage such as Redis or a database.
+
+**Browser end-to-end suite (Sonnet, reviewed by Opus):**
+- `tests/test_ui.py` (616 lines): 15 test functions, 21 cases, about 14 s. Pytest now registers a `ui` marker, so `pytest -m "not ui"` skips the browser tests. Without Chromium installed they skip with an install hint.
+- Each test gets its own live Flask server in a thread on a random free port. Fixed words (apple, banana, questionable), a fake clock to expire games, and a server-side guess delay to simulate latency.
+- A watcher records every API response. Every playing response must have exactly the 8 playing keys and no `word`. The check fails if it recorded nothing, so it cannot pass vacuously. A normal game must also produce no console or page errors, which is where a CSP violation would show up.
+- Coverage:
+  - a win (by clicking) and a loss (by typing) at each difficulty, checking the drawing, message, keys, remaining guesses and letter lists after every guess;
+  - repeated letters revealed;
+  - a new game after a finished one, with no page reload;
+  - the select does not restart a game in progress;
+  - a duplicate key sends no request;
+  - typing in the select sends no guess;
+  - an expired game;
+  - an unreachable server;
+  - slow-network races;
+  - keyboard focus;
+  - the 12-letter word on a 320px phone.
+- **Mutation check:** the agent planted 15 deliberate bugs in a scratch copy of the app (for example keys disabled during a guess, the word leaking while playing, a page reload on New game, the word wrapping on a phone). Each one was caught by the test written for it.
+- **Fixed while writing:** `server.shutdown()` waited 0.5 s per test for its default poll interval. `poll_interval=0.02` halved the suite time, from 27 s to 14 s.
+
+**Full run:** 287 tests pass (266 Python plus 21 browser) in about 14 s, on two consecutive runs by Opus and three by Sonnet. Running three copies of the suite at once also passed, so the tests are not flaky.
+
+**Open UX choice (for the user):** a letter typed while the previous guess is still pending is ignored silently. This is deliberate, to keep one request at a time. The alternative is a short "Waiting for the last guess" message.
+
+**Test coverage map (Haiku, checked against the test bodies, not just their names):**
+
+| Brief requirement | Engine | Store / API | Browser |
+|---|---|---|---|
+| All three difficulties | `test_start_game_for_each_difficulty` | `test_create_game[easy/medium/hard]` | `test_win_by_clicking_keys`, `test_loss_by_typing_letters` (each per difficulty) |
+| Correct and incorrect guesses | `test_correct_guess_reveals_every_occurrence`, `test_incorrect_guess_costs_a_guess` | same names in `test_api.py` | `test_word_cells_and_label_follow_each_guess` |
+| Repeated guesses | `test_duplicate_guess_raises_and_changes_nothing` | `test_duplicate_guess_is_a_conflict`, `test_concurrent_duplicate_guesses_succeed_once` | `test_repeated_letter_on_the_keyboard_sends_no_request` |
+| Invalid guesses | `test_invalid_guess_raises_and_changes_nothing` | `test_invalid_letter_is_rejected`, `test_guess_rejects_bad_bodies` | `test_non_letter_keys_send_no_guess` |
+| Win and loss | `test_win_without_misses`, `test_loss_after_sixth_miss` | `test_winning_game_reveals_the_word`, `test_losing_game_reveals_the_word` | win and loss tests above |
+| New game after a finished one | `test_new_game_after_finished_game` | `test_new_game_after_a_finished_one` | `test_new_game_after_a_loss_resets_the_board_without_reloading` |
+| Invalid API requests | n/a | `test_create_game_rejects_bad_requests`, `test_wrong_method_is_a_json_405`, `test_get_unknown_game_is_not_found` | `test_expired_game_shows_a_message_and_a_new_game_works` |
+| Hidden word not exposed during play | `test_word_is_never_in_state_until_game_ends` | `test_word_is_hidden_until_the_game_ends` | `test_word_stays_hidden_until_the_game_ends`, plus the leak watcher in every browser test |
+| Browser UI updates after each guess | n/a | n/a | `test_win_by_clicking_keys` and `test_loss_by_typing_letters` check the whole UI after every guess |
+
+**Gaps the map found, now closed (Opus):**
+- No browser test pressed non-letter keys. Added `test_non_letter_keys_send_no_guess` (digits, punctuation, F2, arrows).
+- The browser tests used only injected words. Added `test_shipped_app_plays_a_full_game_with_the_real_lists` (per difficulty), which serves the real module-level `app` and checks that the revealed word is in that difficulty's list.
+- The page's difficulty options were not tied to the server. Added `test_difficulty_options_match_the_server`.
+- Two tests checked less than their names claimed:
+  - `test_create_game_ignores_extra_keys` now guesses "a" to tell "apple" apart from the injected "zebra".
+  - `test_real_app_creates_games_from_the_word_lists` now plays until the end and checks the word against the real list.
+- Two names were narrowed to what their bodies prove:
+  - `test_no_list_words_of_six_or_more_letters_ship_to_the_browser`
+  - `test_word_matching_its_difficulty_name_reveals_nothing`
+- The em-dash test contained a literal em dash. It now uses `"—"`, so no project file contains one.
+
+**Final Phase 6 run:** 292 tests (266 Python plus 26 browser) pass in about 17 s, on two consecutive runs.
+
+**Status:** Phase 6 is 8/8. Overall 103/122 (84%), 6/8 phases.
+
+---
+
+## Phase 7: Deployment (2026-10-29)
+
+**Key prompt:** "Start Phase 7" (gunicorn, Render config, push to GitHub, with clear hand-off steps for anything that needs the user's accounts).
+
+**Render facts, rechecked from the current docs (render.com/docs, fetched today):**
+- New services default to Python 3.14.8. A `.python-version` file may give major.minor (`3.12`). The `PYTHON_VERSION` environment variable must be a full version and takes precedence over the file.
+- Blueprint: `render.yaml` at the repo root, with `runtime: python` (`env` is deprecated), `plan: free`, and `autoDeployTrigger: commit` (`autoDeploy` is deprecated).
+- The app must bind to `0.0.0.0` on `$PORT` (default 10000). The docs do not say whether the start command runs in a shell, so the port is read in Python instead.
+- Free web services:
+  - spin down after 15 minutes without traffic, and take about a minute to spin up;
+  - get 750 instance hours per workspace per month;
+  - run on 512 MB and 0.1 CPU;
+  - have an ephemeral filesystem;
+  - "might restart a Free web service at any time";
+  - only one instance.
+
+**Decisions:**
+- **`gunicorn.conf.py` holds the bind address, 1 worker, 4 threads and the access log,** and the start command is just `gunicorn server:app`. The config reads `PORT` in Python, so it works whether or not Render expands `$PORT`. The one-worker reason sits next to the setting.
+- **`.python-version` pins 3.12,** matching local development (3.12.3), instead of Render's 3.14 default.
+- **Service name `hangman-app`, region `virginia`.** The name matches the GitHub repo, and Virginia is the closest US region to Connecticut.
+- **Health check `/`.** It serves the page, so a broken static setup also fails the deploy.
+- **Restarts are already handled.** Free-tier restarts and sleeps wipe the in-memory games. The client turns the resulting 404 into "This game has expired", and its 90 s request timeout covers a one-minute cold start.
+
+**Render build simulated locally:**
+- A clean Python 3.12 venv got `pip install -r requirements.txt` only, which installs 8 packages and no test tools.
+- `PORT=10000 gunicorn server:app` came up on `0.0.0.0:10000` with the `gthread` worker and an access log. `/` returned 200.
+- curl played a full game at each difficulty (easy "group", medium "triumph", hard "exaggerate") with 0 leaks. The Playwright check passed.

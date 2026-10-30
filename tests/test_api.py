@@ -1,4 +1,5 @@
 import re
+import string
 
 import pytest
 
@@ -142,7 +143,8 @@ def test_create_game_ignores_extra_keys(client):
         "/api/games", json={"difficulty": "easy", "word": "zebra"}
     )
     assert response.status_code == 201
-    assert response.get_json()["pattern"] == "_ _ _ _ _"
+    game_id = response.get_json()["game_id"]
+    assert guess(client, game_id, "a").get_json()["pattern"] == "a _ _ _ _"
 
 
 def test_location_header_points_at_the_new_game(client):
@@ -493,9 +495,8 @@ def test_word_manager_failure_is_a_json_500(caplog):
 
 @pytest.mark.parametrize("difficulty", DIFFICULTIES)
 def test_real_app_creates_games_from_the_word_lists(difficulty):
-    response = real_app.test_client().post(
-        "/api/games", json={"difficulty": difficulty}
-    )
+    client = real_app.test_client()
+    response = create_game(client, difficulty)
     body = response.get_json()
 
     assert response.status_code == 201
@@ -503,6 +504,12 @@ def test_real_app_creates_games_from_the_word_lists(difficulty):
     assert body["remaining_guesses"] == 6
     assert body["status"] == "playing"
     assert "word" not in body
+
+    for letter in string.ascii_lowercase:
+        body = guess(client, body["game_id"], letter).get_json()
+        if body["status"] != "playing":
+            break
+    assert body["word"] in WordManager.from_directory().words(difficulty)
 
 
 def test_doubled_slashes_are_a_json_404_not_a_redirect(client):

@@ -12,7 +12,7 @@ from flask.testing import FlaskClient
 from werkzeug.test import TestResponse
 
 from server import create_app
-from word_manager import WordManager
+from word_manager import DIFFICULTIES, WordManager
 
 ROOT = Path(__file__).parent.parent
 STATIC_DIR = ROOT / "static"
@@ -215,7 +215,7 @@ def test_app_js_uses_fetch_and_the_api_paths():
     assert '"Content-Type": "application/json"' in js
 
 
-def test_no_word_list_ships_to_the_browser():
+def test_no_list_words_of_six_or_more_letters_ship_to_the_browser():
     shipped = word_tokens(read_static("app.js") + read_static("index.html"))
 
     assert (shipped & list_words()) <= UI_WORDS
@@ -232,4 +232,11 @@ def test_app_js_avoids_banned_constructs(pattern):
     "name", ["index.html", "app.js", "style.css", "favicon.svg"]
 )
 def test_static_files_have_no_em_dashes(name):
-    assert "—" not in read_static(name)
+    assert "\u2014" not in read_static(name)
+
+
+def test_difficulty_options_match_the_server():
+    options = re.findall(
+        r'<option value="([a-z]+)"', read_static("index.html")
+    )
+    assert tuple(options) == DIFFICULTIES

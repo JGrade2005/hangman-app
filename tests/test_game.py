@@ -363,7 +363,7 @@ def test_new_game_after_finished_game(word_manager, finished_game):
         finished_game.guess("k")
 
 
-def test_playing_state_reveals_nothing_beyond_the_pattern():
+def test_word_matching_its_difficulty_name_reveals_nothing():
     # "easy" is a real Easy word, so the difficulty field matches the word
     # text. The state is still identical to any other 4-letter Easy word.
     tricky = HangmanGame("easy", difficulty="easy")

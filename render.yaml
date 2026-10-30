@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: hangman-app
+    runtime: python
+    plan: free
+    region: virginia
+    buildCommand: pip install -r requirements.txt
+    # Workers, threads and the port binding live in gunicorn.conf.py.
+    startCommand: gunicorn server:app
+    healthCheckPath: /
+    autoDeployTrigger: commit
