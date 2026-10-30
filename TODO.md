@@ -234,18 +234,19 @@ A user can play a complete game at a public HTTPS URL with nothing installed. (b
 
 ### Tasks
 
-- [ ] Create or update `README.md`. (P14)
-- [ ] Document installation. (P14)
-- [ ] Document how to start the server. (P14)
-- [ ] Document how to use the browser client. (P14)
-- [ ] Document the REST API. (P14)
-- [ ] Provide example requests and responses. (P14)
-- [ ] Document testing and deployment. (brief)
-- [ ] Document deviations from the spec and out-of-scope items. (plan)
-- [ ] Verify that a fresh installation works from the documented instructions. (P14)
-- [ ] Finalize `TODO.md` and `DEV_LOG.md`. (brief)
-- [ ] Draft `REPORT_NOTES.md`, leaving the reflection section for the user. (brief)
-- [ ] Write the session log in `~/agenticlibrary`. (plan)
+- [x] Create or update `README.md`. (P14)
+- [x] Document installation. (P14)
+- [x] Document how to start the server. (P14)
+- [x] Document how to use the browser client. (P14)
+- [x] Document the REST API. (P14)
+- [x] Provide example requests and responses. (P14)
+- [x] Document testing and deployment. (brief)
+- [x] Document deviations from the spec and out-of-scope items. (plan)
+- [x] Verify that a fresh installation works from the documented instructions. (P14)
+- [x] Finalize `TODO.md` and `DEV_LOG.md`. (brief)
+- [x] Draft `REPORT_NOTES.md`, leaving the reflection section for the user. (brief)
+- [x] Write the session log in `~/agenticlibrary`. (plan)
+- [x] Move the application into `src/` for a cleaner repository root. (user)
 
 ### Completion Criteria
 

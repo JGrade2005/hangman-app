@@ -77,7 +77,7 @@ Draft notes for the 1 to 2 page report. They are bullets to turn into prose, not
   - the security headers;
   - no word in any playing response;
   - the Playwright check on desktop, phone and dark mode.
-- **Free tier:** the service sleeps after 15 idle minutes. Cold start measured: _(see DEV_LOG, Phase 7)_.
+- **Free tier:** Render documents a spin-down after 15 idle minutes and about a minute to wake. The page shows a "server may be waking up" notice after 3 s and waits up to 90 s. My one measurement, after 18 idle minutes, found the site still awake (0.1 s), so the cold start itself was not captured.
 
 ## 5. Challenges and fixes (pick one or two)
 
@@ -95,6 +95,8 @@ Draft notes for the 1 to 2 page report. They are bullets to turn into prose, not
 4. **A concurrency test that could never fail.** The first lock test still passed with the lock removed. I replaced it with a slow stand-in game that makes overlap visible, and confirmed it fails 3 of 3 times without the lock.
 
 ## 6. Representative prompts
+
+All 16 prompts, quoted word for word with what each led to, are in [CHATLOG.md](CHATLOG.md).
 
 1. **Kickoff** (sets the process): "Build and deploy the Hangman web app ... For each phase: write the phase's TODO checklist, implement it, checking items off in TODO.md, verify it, stop and report ... Don't start the next phase until every item in the current one is checked off and I approve." This led to the 8-phase plan, the scope decision and the reorganized TODO.
 2. **Manual verification before moving on:** "So far everything works properly. All 3 difficulties are working and have correct words. Continue onto phase 6." This recorded my own browser playthrough as part of the testing evidence.

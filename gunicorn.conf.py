@@ -1,6 +1,10 @@
 """Gunicorn settings for production. Gunicorn loads this file by default."""
 
 import os
+from pathlib import Path
+
+# The app modules live in src/, so `gunicorn server:app` can import them.
+pythonpath = str(Path(__file__).parent / "src")
 
 # Render sets PORT and routes traffic to 0.0.0.0. Without PORT this is a
 # local run, so stay on localhost instead of exposing it to the network.

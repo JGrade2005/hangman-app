@@ -14,9 +14,9 @@ from werkzeug.test import TestResponse
 from server import create_app
 from word_manager import DIFFICULTIES, WordManager
 
-ROOT = Path(__file__).parent.parent
-STATIC_DIR = ROOT / "static"
-WORDS_DIR = ROOT / "words"
+SRC = Path(__file__).parent.parent / "src"
+STATIC_DIR = SRC / "static"
+WORDS_DIR = SRC / "words"
 WORDS = {"easy": ["apple"], "medium": ["banana"], "hard": ["pineapple"]}
 CSP = (
     "default-src 'self'; frame-ancestors 'none'; "

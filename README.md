@@ -29,18 +29,18 @@ cd hangman-app
 python3.12 -m venv .venv           # Windows: py -3.12 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python server.py
+python src/server.py
 ```
 
 Open http://127.0.0.1:5000 in a browser. Press Ctrl+C in the terminal to stop the server.
 
-`python server.py` runs Flask's development server with debug mode off. To run it the way production does:
+`python src/server.py` runs Flask's development server with debug mode off. To run it the way production does:
 
 ```bash
 gunicorn server:app
 ```
 
-This reads [gunicorn.conf.py](gunicorn.conf.py) and serves http://127.0.0.1:8000. If the `PORT` environment variable is set, as it is on Render, it listens on all interfaces at that port instead. Gunicorn runs on Linux and macOS only, so on Windows use `python server.py`.
+This reads [gunicorn.conf.py](gunicorn.conf.py) and serves http://127.0.0.1:8000. If the `PORT` environment variable is set, as it is on Render, it listens on all interfaces at that port instead. Gunicorn runs on Linux and macOS only, so on Windows use `python src/server.py`.
 
 ## How to play
 
@@ -53,16 +53,17 @@ If the page says the game has expired, the server restarted (free hosting does t
 ## Project structure
 
 ```text
-game.py             Game engine: HangmanGame, guess rules, win/loss, client-safe state
-word_manager.py     Loads, cleans and picks words from words/*.txt by difficulty
-game_store.py       Thread-safe in-memory games by ID, with idle expiry and a cap
-server.py           Flask app: REST API, JSON errors, security headers, serves the page
-static/             Browser client: index.html, style.css, app.js, favicon.svg
-words/              easy.txt, medium.txt, hard.txt (one lowercase word per line)
+src/                The application
+  game.py           Game engine: HangmanGame, guess rules, win/loss, client-safe state
+  word_manager.py   Loads, cleans and picks words from words/*.txt by difficulty
+  game_store.py     Thread-safe in-memory games by ID, with idle expiry and a cap
+  server.py         Flask app: REST API, JSON errors, security headers, serves the page
+  static/           Browser client: index.html, style.css, app.js, favicon.svg
+  words/            easy.txt, medium.txt, hard.txt (one lowercase word per line)
 tests/              pytest suites for each layer, plus Playwright browser tests
-pytest.ini          Test paths and the "ui" marker for the browser tests
+pytest.ini          Test settings: puts src/ on the import path, registers the "ui" marker
 progress.py         Writes PROGRESS.md from the TODO.md checkboxes
-gunicorn.conf.py    Production server settings (1 worker, 4 threads, PORT binding)
+gunicorn.conf.py    Production server settings (src/ on the path, 1 worker, 4 threads, PORT)
 render.yaml         Render Blueprint for deployment
 .python-version     Pins Python 3.12 on Render
 requirements.txt    Runtime dependencies (Flask, gunicorn)
@@ -71,17 +72,18 @@ Specification.md    The original project specification
 TODO.md             Implementation checklist, by phase
 PROGRESS.md         Progress bars generated from TODO.md by progress.py
 DEV_LOG.md          Development log: prompts, decisions, problems and fixes
+CHATLOG.md          Every prompt given to the AI agent, in order, with what each led to
 ```
 
 ## How it works
 
 ```text
-Browser (static/app.js)  --fetch, JSON-->  Flask (server.py)  -->  GameStore  -->  HangmanGame
+Browser (src/static/app.js)  --fetch, JSON-->  Flask (src/server.py)  -->  GameStore  -->  HangmanGame
 holds: game_id + last reply                 routes + errors          id -> game      word + guesses
 ```
 
-- **The engine** ([game.py](game.py)) stores only the hidden word and the letters guessed. The pattern, incorrect letters, remaining guesses and status (`playing`, `won`, `lost`) are recalculated from those two on every request, so they can never disagree. It has no Flask or browser code and is tested on its own.
-- **The store** ([game_store.py](game_store.py)) keeps games in memory, keyed by a random `uuid4` ID. One lock covers each whole operation, so two requests at the same moment cannot both pass the duplicate-guess check.
+- **The engine** ([src/game.py](src/game.py)) stores only the hidden word and the letters guessed. The pattern, incorrect letters, remaining guesses and status (`playing`, `won`, `lost`) are recalculated from those two on every request, so they can never disagree. It has no Flask or browser code and is tested on its own.
+- **The store** ([src/game_store.py](src/game_store.py)) keeps games in memory, keyed by a random `uuid4` ID. One lock covers each whole operation, so two requests at the same moment cannot both pass the duplicate-guess check.
 - **The game ID travels in the URL** (`/api/games/<game_id>/guess`). The request body carries only the action's data (`{"letter": "e"}`). There are no cookies or sessions, so the API works the same from a browser, curl or a bot.
 - **The browser** keeps one variable: the last JSON reply from the server, which includes `game_id` and `status`. It builds each request URL from that ID and redraws the page from each reply. It never works out a game result itself, and it never sends a status, a pattern or a word to the server.
 - **The word stays on the server.** `to_state()` adds `word` to a response only once the game has ended. The tests check this at the engine, API and browser levels.
@@ -231,4 +233,4 @@ Within the parts that are built:
 
 ## Development
 
-Built for CSE4095 (Class 14) with Claude Code. Opus led design and review, Sonnet subagents wrote most of the code, and Haiku subagents checked work against the spec and TODO. [DEV_LOG.md](DEV_LOG.md) records the prompts, decisions, problems and fixes for each phase. Run `python progress.py` to refresh [PROGRESS.md](PROGRESS.md) from [TODO.md](TODO.md).
+Built for CSE4095 (Class 14) with Claude Code. Opus led design and review, Sonnet subagents wrote most of the code, and Haiku subagents checked work against the spec and TODO. [DEV_LOG.md](DEV_LOG.md) records the decisions, problems and fixes for each phase, and [CHATLOG.md](CHATLOG.md) lists every prompt given to the agent. Run `python progress.py` to refresh [PROGRESS.md](PROGRESS.md) from [TODO.md](TODO.md).

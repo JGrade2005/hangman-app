@@ -272,7 +272,7 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 - Two names were narrowed to what their bodies prove:
   - `test_no_list_words_of_six_or_more_letters_ship_to_the_browser`
   - `test_word_matching_its_difficulty_name_reveals_nothing`
-- The em-dash test contained a literal em dash. It now uses `"—"`, so no project file contains one.
+- The em-dash test contained a literal em dash. It now uses the escape `"\u2014"`, so no project file contains the character.
 
 **Final Phase 6 run:** 292 tests (267 Python plus 25 browser) pass in about 17 s, on two consecutive runs.
 
@@ -326,6 +326,8 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 - The Playwright check against the live site played 4 full games (desktop clicking, desktop keyboard, a 360px phone, dark mode) with no problems. Phone keys are 44px tall, and "substantiate" fits on one row.
 - **Problem in my own check script:** it first reported the CSP, `nosniff` and `Location` headers as missing. Cloudflare sends lowercase header names, and the script had copied the headers into a plain `dict`, which made lookups case-sensitive. Using urllib's header object, which is case-insensitive, fixed it. **Lesson:** HTTP header names are case-insensitive, so never compare them as plain dict keys.
 
+**Cold-start measurement (inconclusive):** after 18 minutes with no traffic from me, the site answered in 0.11 s (HTTP 200), the same as when awake, so it had not spun down. Most likely cause: the user committed `008fbd8` at 20:27 and pushed it, and Render redeployed on push, so the check at 20:30 hit a freshly started instance. After that redeploy (which includes the localhost-only Gunicorn bind), the live checks passed again with no problems. Render documents spin-down after 15 idle minutes and about one minute to spin up. The client's 3 s "waking up" notice and 90 s timeout are designed for that case.
+
 **Status:** Phase 7 is 8/8. Overall 111/123 (90%), 7/8 phases.
 
 ---
@@ -365,3 +367,27 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 - The README itself was not on GitHub yet. That is expected until the final commit.
 
 **Correction:** the final test split is 267 Python tests plus 25 browser tests (292 in total). An earlier report said 266 plus 26.
+
+**Status:** Phase 8 is 12/12. All 8 phases are complete: 123/123 checklist items. 292 tests pass. Live at https://hangman-app-mom6.onrender.com/.
+
+**Left for the user:**
+- Push the final commit (README, report notes and the Gunicorn binding fix). Render redeploys on push.
+- Write the report reflection.
+- Optionally, confirm the Render instance type (Free) and the Python version (3.12) in the dashboard, and decide whether to keep the site awake during grading.
+
+**Repository hygiene (user request):** `REPORT.md` (the user's report draft, plus any PDF or Word export) and `REPORT_NOTES.md` are kept local and listed in `.gitignore`. `REPORT_NOTES.md` had already been committed in `008fbd8`, so it is untracked with `git rm --cached`; it stays in that older commit's history. `.gitignore` also now covers editor folders (`.vscode/`, `.idea/`), Office lock files (`~$*`), and Windows `Thumbs.db` and `:Zone.Identifier` files.
+
+**Moved the application into `src/` (user request: "can you also have a src file to make the github cleaner"):**
+- `game.py`, `word_manager.py`, `game_store.py`, `server.py`, `static/` and `words/` now live in `src/`.
+- `static/` and `words/` moved together with the code, so `word_manager.py` (which finds `words/` next to itself) and Flask (which finds `static/` next to `server.py`) needed no code changes.
+- Config changes:
+  - `pytest.ini` uses `pythonpath = src`;
+  - `gunicorn.conf.py` adds `src/` to Gunicorn's `pythonpath`, so the Render start command stays `gunicorn server:app`;
+  - `tests/test_web.py` reads the client files from `src/static`;
+  - the README now runs `python src/server.py` and shows the new layout.
+- Files were moved with plain `mv` (the user does all git). Git records them as renames when staged.
+- **Verified:**
+  - 292 tests pass;
+  - `python src/server.py` serves the page and plays a game;
+  - in a clean venv started the way Render does (`PORT=10000`), Gunicorn imports from `src/`, curl played a game at every difficulty with no leaks, and the Playwright browser check passed;
+  - local Gunicorn still binds `127.0.0.1:8000`.

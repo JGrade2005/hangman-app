@@ -15,6 +15,17 @@ playwright-report/
 # Course reference material, not part of this project's source
 cursor_transcript.md
 
+# Personal report drafts and exports, kept local
+REPORT.*
+REPORT_NOTES.md
+~$*
+
+# Editors
+.vscode/
+.idea/
+
 # OS and secrets
 .DS_Store
+Thumbs.db
+*:Zone.Identifier
 .env
