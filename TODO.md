@@ -219,10 +219,10 @@ The major user flows and failure cases are covered by automated tests. (P13)
 - [x] Pin the Python version. (plan)
 - [x] Simulate the Render build in a clean virtual environment with only `requirements.txt`. (plan)
 - [x] Recheck Render free-tier behavior (sleep, wake time, monthly hours). (plan)
-- [ ] User: create the GitHub repo, commit, and push. (brief)
-- [ ] User: sign in to Render and apply the Blueprint. (brief)
-- [ ] Verify the live HTTPS URL with HTTP requests (create, guess, win, loss, errors, no word leak). (brief)
-- [ ] Play a complete game on the live URL in a browser. (brief)
+- [x] User: create the GitHub repo, commit, and push. (brief)
+- [x] User: sign in to Render and apply the Blueprint. (brief)
+- [x] Verify the live HTTPS URL with HTTP requests (create, guess, win, loss, errors, no word leak). (brief)
+- [x] Play a complete game on the live URL in a browser. (brief)
 
 ### Completion Criteria
 

@@ -274,7 +274,7 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
   - `test_word_matching_its_difficulty_name_reveals_nothing`
 - The em-dash test contained a literal em dash. It now uses `"—"`, so no project file contains one.
 
-**Final Phase 6 run:** 292 tests (266 Python plus 26 browser) pass in about 17 s, on two consecutive runs.
+**Final Phase 6 run:** 292 tests (267 Python plus 25 browser) pass in about 17 s, on two consecutive runs.
 
 **Status:** Phase 6 is 8/8. Overall 103/122 (84%), 6/8 phases.
 
@@ -307,3 +307,61 @@ Tooling: Claude Code (Opus 5.5 as lead). Subagent routing follows `~/agenticlibr
 - A clean Python 3.12 venv got `pip install -r requirements.txt` only, which installs 8 packages and no test tools.
 - `PORT=10000 gunicorn server:app` came up on `0.0.0.0:10000` with the `gthread` worker and an access log. `/` returned 200.
 - curl played a full game at each difficulty (easy "group", medium "triumph", hard "exaggerate") with 0 leaks. The Playwright check passed.
+
+**User steps (accounts):** the user created the public GitHub repo `JGrade2005/hangman-app`, pushed (head `0adf4d9`; the Phase 6 tests went in with this deployment commit because `git add .` staged them), and deployed on Render.
+
+**Live URL:** https://hangman-app-mom6.onrender.com/ (the name `hangman-app` was taken, so Render added the suffix `-mom6`).
+
+**Live verification (Opus):**
+- HTTPS with a valid certificate (curl TLS verify result 0). `http://` redirects to `https://` with a 301. The response headers show `x-render-origin-server: gunicorn` behind Cloudflare.
+- `live_check.py` (scratchpad) found no problems:
+  - the page and its assets return 200, with the CSP and `nosniff` headers;
+  - a full game at each difficulty;
+  - every revealed word came from the right list (easy "rise", "large"; medium "careful", "throw"; hard "inextricable", "irresolution");
+  - no `word` key in any playing response;
+  - 409 after a game ends, 409 for a duplicate, 400 for a bad difficulty, the wrong content type, malformed JSON or a two-letter guess;
+  - 404 JSON for an unknown game or route, 405 JSON for the wrong method, 413 for an oversized body;
+  - `Cache-Control: no-store` on the API;
+  - 0 of 30 lookups of finished games lost, so a single worker is serving.
+- The Playwright check against the live site played 4 full games (desktop clicking, desktop keyboard, a 360px phone, dark mode) with no problems. Phone keys are 44px tall, and "substantiate" fits on one row.
+- **Problem in my own check script:** it first reported the CSP, `nosniff` and `Location` headers as missing. Cloudflare sends lowercase header names, and the script had copied the headers into a plain `dict`, which made lookups case-sensitive. Using urllib's header object, which is case-insensitive, fixed it. **Lesson:** HTTP header names are case-insensitive, so never compare them as plain dict keys.
+
+**Status:** Phase 7 is 8/8. Overall 111/123 (90%), 7/8 phases.
+
+---
+
+## Phase 8: Submission package (2026-10-29)
+
+**Key prompts:**
+- "For the site implementation, how is the game state tracked on the server side and on the player side? Game ID and status isn't sent in the payload of the HTTP get and post requests, so how is this information tracked on both ends?"
+  - Answer: the ID travels in the URL path. The server's store maps the ID to the game (word plus guesses), and status is recalculated on each request. The browser keeps only the ID and the last reply, and never sends status.
+  - This explanation became the README's "How it works" section.
+- "Continue onto the next phase."
+
+**Done (Opus):**
+- `README.md`:
+  - live URL, features, how to run locally (Linux, macOS and Windows) and how to play;
+  - project structure and how it works;
+  - REST API tables for routes, state fields and errors, plus a real example session captured from a local server with the word fixed to "apple";
+  - testing (per-file counts) and deployment;
+  - differences from the spec, and known limitations.
+- `REPORT_NOTES.md`: notes for the report covering process, implementation, testing and deployment, four challenges to choose from, and three representative prompts. The reflection is left for the user.
+- A session log in `~/agenticlibrary/sessions/2026-10-29-class14-hangmanapp/` (`session.md` and `chatlog.md`).
+
+**Fresh-install check (Haiku):**
+- Cloned the public repo over HTTPS into an empty folder and followed the README literally. All 5 steps passed:
+  1. install;
+  2. the page at :5000;
+  3. the example session (every status code and error message matched);
+  4. `pytest` (292 passed, and 267 with `-m "not ui"`; without Chromium the browser tests skip with the install hint);
+  5. Gunicorn at :8000.
+- Every file listed in the README exists, and every test count matches `--collect-only`.
+
+**Fixes from the fresh-install check:**
+- **Gunicorn listened on `0.0.0.0` even locally,** so a local run was reachable from the network. `gunicorn.conf.py` now binds `0.0.0.0` only when `PORT` is set (Render); otherwise it uses `127.0.0.1:8000`. Checked both ways. Render behavior is unchanged.
+- **The README now uses `python3.12 -m venv`.** Plain `python3` can be a newer version on other machines.
+- **The README mentions `playwright install --with-deps chromium`** for fresh Linux machines.
+- **The project structure lists `pytest.ini` and `progress.py`,** and the error examples now match the output byte for byte.
+- The README itself was not on GitHub yet. That is expected until the final commit.
+
+**Correction:** the final test split is 267 Python tests plus 25 browser tests (292 in total). An earlier report said 266 plus 26.
